@@ -54,8 +54,3 @@ PageRank outputs the relevance score for each evaluated webpage.
 
 ## **Additional Resources**
 - Link to Google Slides: https://docs.google.com/presentation/d/1QOSXqZg2dFzxuQ34TtlFRG8l0VwQFXjygpLO_xNFf3g/edit#slide=id.g23ed2c52efe_0_72
-
-**Tips**:
-1. Consider replacing placeholders like `LINK_TO_THE_SLIDES` with actual URLs or resources.
-2. Adding visuals (screenshots, diagrams) can make the README more engaging and informative. 
-3. A "Contribution" or "Feedback" section can invite collaboration and suggestions to improve the project further.
