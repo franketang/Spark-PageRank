@@ -1,24 +1,53 @@
-val lines = sc.textFile("hdfs:///mydata/input.txt") // Read input text file from HDFS
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.mllib.tree.DecisionTree
+import org.apache.spark.mllib.tree.model.DecisionTreeModel
+import org.apache.spark.mllib.util.MLUtils
 
-val links = lines.map{ s =>
-    val parts = s.split("\\s+")
-    (parts(0), parts(1))
-}.distinct().groupByKey().cache() // Split lines, create key-value pairs, remove duplicates, group by key, and cache the result
+object DecisionTreeClassificationExample {
+  def main(args: Array[String]): Unit = {
+    // Initialize Spark
+    val conf = new SparkConf().setAppName("DecisionTreeClassification")
+    val sc = new SparkContext(conf)
 
-var ranks = links.mapValues(v => 1.0) // Initialize ranks with a value of 1.0 for each key
+    // Load and parse the LIBSVM data file
+    val data = MLUtils.loadLibSVMFile(sc, "data/mllib/sample_libsvm_data.txt")
 
-for (i <- 1 to 2) {
-    val contribs = links.join(ranks).values.flatMap{ case (urls, rank) =>
-        val size = urls.size
-        urls.map(url => (url, rank / size))
-    } // Join links and ranks, calculate contributions, and flatten the result
+    // Split the data into training and test sets (70% training, 30% testing)
+    val Array(trainingData, testData) = data.randomSplit(Array(0.7, 0.3))
 
-    ranks = contribs.reduceByKey(_ + _).mapValues(0.15 + 0.85 * _) // Reduce contributions by key, apply rank formula
+    // Define model parameters
+    val numClasses = 2
+    val categoricalFeaturesInfo = Map[Int, Int]()
+    val impurity = "gini"
+    val maxDepth = 5
+    val maxBins = 32
 
+    // Train a DecisionTree model
+    val model = DecisionTree.trainClassifier(
+      trainingData,
+      numClasses,
+      categoricalFeaturesInfo,
+      impurity,
+      maxDepth,
+      maxBins
+    )
+
+    // Evaluate the model on test instances and compute test error
+    val labelAndPreds = testData.map { point =>
+      val prediction = model.predict(point.features)
+      (point.label, prediction)
+    }
+    val testErr = labelAndPreds.filter(r => r._1 != r._2).count.toDouble / testData.count()
+    println(s"Test Error = $testErr")
+
+    // Print the learned classification tree model
+    println("Learned classification tree model:\n" + model.toDebugString)
+
+    // Save and load the model
+    model.save(sc, "target/tmp/myDecisionTreeClassificationModel")
+    val sameModel = DecisionTreeModel.load(sc, "target/tmp/myDecisionTreeClassificationModel")
+
+    // Stop the Spark context
+    sc.stop()
+  }
 }
-
-val output = ranks.collect() // Collect the final ranks
-
-output.foreach(tup => println(tup._1 + " has rank: " + tup._2 + ".")) // Print each key and its rank
-
-sc.stop() // Stop the SparkContext
